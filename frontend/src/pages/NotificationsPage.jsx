@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { acceptFriendRequest, getFriendRequests, getOutgoingFriendReqs } from "../lib/api";
 import { BellIcon, ClockIcon, MessageSquareIcon, UserCheckIcon, SendIcon } from "lucide-react";
@@ -5,6 +6,7 @@ import NoNotificationsFound from "../components/NoNotificationsFound";
 
 const NotificationsPage = () => {
   const queryClient = useQueryClient();
+  const [pendingRequestId, setPendingRequestId] = useState(null);
 
   const { data: friendRequests, isLoading } = useQuery({
     queryKey: ["friendRequests"],
@@ -16,12 +18,16 @@ const NotificationsPage = () => {
     queryFn: getOutgoingFriendReqs,
   });
 
-  const { mutate: acceptRequestMutation, isPending } = useMutation({
+  const { mutate: acceptRequestMutation } = useMutation({
     mutationFn: acceptFriendRequest,
     onSuccess: () => {
+      setPendingRequestId(null);
       queryClient.invalidateQueries({ queryKey: ["friendRequests"] });
       queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] });
       queryClient.invalidateQueries({ queryKey: ["friends"] });
+    },
+    onError: () => {
+      setPendingRequestId(null);
     },
   });
 
@@ -80,8 +86,11 @@ const NotificationsPage = () => {
 
                           <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => acceptRequestMutation(request._id)}
-                            disabled={isPending}
+                            onClick={() => {
+                              setPendingRequestId(request._id);
+                              acceptRequestMutation(request._id);
+                            }}
+                            disabled={pendingRequestId === request._id}
                           >
                             Accept
                           </button>

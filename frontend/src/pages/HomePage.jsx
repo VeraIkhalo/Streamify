@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getOutgoingFriendReqs,
@@ -11,6 +12,7 @@ import { getLanguageFlag } from "../components/LanguageFlag";
 
 const HomePage = () => {
   const queryClient = useQueryClient();
+  const [pendingUserId, setPendingUserId] = useState(null);
 
   const { data: recommendedUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["users"],
@@ -22,9 +24,15 @@ const HomePage = () => {
     queryFn: getOutgoingFriendReqs,
   });
 
-  const { mutate: sendRequestMutation, isPending } = useMutation({
+  const { mutate: sendRequestMutation } = useMutation({
     mutationFn: sendFriendRequest,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] }),
+    onSuccess: () => {
+      setPendingUserId(null);
+      queryClient.invalidateQueries({ queryKey: ["outgoingFriendReqs"] });
+    },
+    onError: () => {
+      setPendingUserId(null);
+    },
   });
 
   const outgoingRequestsIds = new Set(outgoingFriendReqs?.map(req => req.recipient._id) || []);
@@ -107,8 +115,11 @@ const HomePage = () => {
                         className={`btn w-full mt-2 ${
                           hasRequestBeenSent ? "btn-disabled" : "btn-primary"
                         } `}
-                        onClick={() => sendRequestMutation(user._id)}
-                        disabled={hasRequestBeenSent || isPending}
+                        onClick={() => {
+                          setPendingUserId(user._id);
+                          sendRequestMutation(user._id);
+                        }}
+                        disabled={hasRequestBeenSent || pendingUserId === user._id}
                       >
                         {hasRequestBeenSent ? (
                           <>
