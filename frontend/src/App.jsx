@@ -8,6 +8,10 @@ import CallPage from "./pages/CallPage.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import OnboardingPage from "./pages/OnboardingPage.jsx";
 import FriendsPage from "./pages/FriendsPage.jsx";
+import VerifyEmailPage from "./pages/VerifyEmailPage.jsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import ResendVerificationPage from "./pages/ResendVerificationPage.jsx";
 
 import { Toaster } from "react-hot-toast";
 
@@ -52,6 +56,11 @@ const App = () => {
             !isAuthenticated ? <LoginPage /> : <Navigate to={isOnboarded ? "/" : "/onboarding"} />
           }
         />
+        {/* Email & Password Recovery Routes */}
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/resend-verification" element={<ResendVerificationPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route
           path="/notifications"
           element={

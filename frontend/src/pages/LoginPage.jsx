@@ -88,6 +88,11 @@ const LoginPage = () => {
                       onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                       required
                     />
+                    <label className="label">
+                      <Link to="/forgot-password" className="label-text-alt link link-hover text-primary">
+                        Forgot password?
+                      </Link>
+                    </label>
                   </div>
 
                   <button type="submit" className="btn btn-primary w-full" disabled={isPending}>
