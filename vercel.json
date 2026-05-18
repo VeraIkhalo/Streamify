@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "projects": [
+    {
+      "src": "frontend",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    },
+    {
+      "src": "backend",
+      "use": "@vercel/node"
+    }
+  ],
+  "buildCommand": "npm run build --prefix frontend && npm install --prefix backend"
+}

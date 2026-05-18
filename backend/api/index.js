@@ -18,13 +18,13 @@ app.use(express.urlencoded({ limit: "5mb", extended: true }));
 // Connect to database
 await connectDB();
 
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/chat", chatRoutes);
-app.use("/api/user", userRoutes);
+// Routes (no /api prefix since Vercel routes /api/* to this handler)
+app.use("/auth", authRoutes);
+app.use("/chat", chatRoutes);
+app.use("/user", userRoutes);
 
 // Health check
-app.get("/api/health", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({ status: "Backend is running" });
 });
 
@@ -32,5 +32,7 @@ app.get("/api/health", (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
+
+export default app;
 
 export default app;
