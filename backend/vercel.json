@@ -1,23 +1,15 @@
 {
+  "version": 2,
   "buildCommand": "npm install",
   "functions": {
-    "api/**/*.js": {
+    "api/index.js": {
       "runtime": "nodejs18.x"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
+      "src": "/(.*)",
+      "dest": "/api"
     }
-  ],
-  "env": {
-    "MONGO_URI": "@mongo_uri",
-    "JWT_SECRET_KEY": "@jwt_secret_key",
-    "STREAM_API_KEY": "@stream_api_key",
-    "STREAM_API_SECRET": "@stream_api_secret",
-    "EMAIL_USER": "@email_user",
-    "EMAIL_PASSWORD": "@email_password",
-    "CLIENT_URL": "@client_url"
-  }
+  ]
 }
