@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import useAuthUser from "../hooks/useAuthUser";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { completeOnboarding } from "../lib/api";
-import { CameraIcon, LoaderIcon, MapPinIcon, ShipWheelIcon, ShuffleIcon } from "lucide-react";
+import { CameraIcon, LoaderIcon, MapPinIcon, ShipWheelIcon, ShuffleIcon, UploadIcon, X } from "lucide-react";
 import { LANGUAGES } from "../constants";
 
 const OnboardingPage = () => {
   const { authUser } = useAuthUser();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef(null);
 
   const [formState, setFormState] = useState({
     fullName: authUser?.fullName || "",
@@ -18,6 +19,9 @@ const OnboardingPage = () => {
     location: authUser?.location || "",
     profilePic: authUser?.profilePic || "",
   });
+
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
 
   const { mutate: onboardingMutation, isPending } = useMutation({
     mutationFn: completeOnboarding,
@@ -31,18 +35,154 @@ const OnboardingPage = () => {
     },
   });
 
+  // Compress image using canvas to reduce file size for Stream.io
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      setIsCompressing(true);
+      const reader = new FileReader();
+
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          // Set max dimensions (180x180 for smaller size)
+          const maxWidth = 180;
+          const maxHeight = 180;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to JPEG with aggressive compression (0.6 = 60% quality for smaller size)
+          let compressedBase64 = canvas.toDataURL("image/jpeg", 0.6);
+
+          // Check size (should be < 10KB for safer Stream.io limits)
+          let sizeInKB = (compressedBase64.length * 3) / 4 / 1024;
+
+          // If still too large, reduce quality further
+          if (sizeInKB > 10) {
+            compressedBase64 = canvas.toDataURL("image/jpeg", 0.5);
+            sizeInKB = (compressedBase64.length * 3) / 4 / 1024;
+          }
+
+          if (sizeInKB > 15) {
+            reject(new Error(`Image is still too large (${sizeInKB.toFixed(1)}KB). Please use a smaller or simpler image.`));
+          } else {
+            resolve(compressedBase64);
+            toast.success(`Profile picture uploaded! (${sizeInKB.toFixed(1)}KB)`);
+          }
+          setIsCompressing(false);
+        };
+
+        img.onerror = () => {
+          reject(new Error("Failed to load image"));
+          setIsCompressing(false);
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Failed to read file"));
+        setIsCompressing(false);
+      };
+
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Check file size before compression (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File is too large. Please use a file smaller than 2MB");
+      return;
+    }
+
+    try {
+      const compressedImage = await compressImage(file);
+      setFormState({ ...formState, profilePic: compressedImage });
+    } catch (error) {
+      toast.error(error.message || "Failed to process image");
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormState({ ...formState, profilePic: "" });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRandomAvatar = async () => {
+    setIsGeneratingAvatar(true);
+    try {
+      // Use dicebear API instead - more reliable and faster
+      const styles = ["avataaars", "pixel-art", "personas", "lorelei"];
+      const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+      const seed = Math.random().toString(36).substring(7);
+      const avatarUrl = `https://api.dicebear.com/9.x/${randomStyle}/svg?seed=${seed}`;
+
+      // Test if the URL is accessible with a timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+      try {
+        const response = await fetch(avatarUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("Failed to fetch avatar");
+
+        setFormState({ ...formState, profilePic: avatarUrl });
+        toast.success("Random avatar generated!");
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        toast.error("Avatar service is unavailable. Please upload a photo instead.");
+        console.error("Avatar fetch error:", fetchError);
+      }
+    } catch (error) {
+      toast.error("Could not generate avatar. Please upload a photo instead.");
+      console.error("Avatar generation error:", error);
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
     onboardingMutation(formState);
-  };
-
-  const handleRandomAvatar = () => {
-    const idx = Math.floor(Math.random() * 100) + 1; // 1-100 included
-    const randomAvatar = `https://avatar.iran.liara.run/public/${idx}.png`;
-
-    setFormState({ ...formState, profilePic: randomAvatar });
-    toast.success("Random profile picture generated!");
   };
 
   return (
@@ -55,27 +195,89 @@ const OnboardingPage = () => {
             {/* PROFILE PIC CONTAINER */}
             <div className="flex flex-col items-center justify-center space-y-4">
               {/* IMAGE PREVIEW */}
-              <div className="size-32 rounded-full bg-base-300 overflow-hidden">
-                {formState.profilePic ? (
-                  <img
-                    src={formState.profilePic}
-                    alt="Profile Preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <CameraIcon className="size-12 text-base-content opacity-40" />
-                  </div>
+              <div className="relative">
+                <div className="size-32 rounded-full bg-base-300 overflow-hidden">
+                  {formState.profilePic ? (
+                    <img
+                      src={formState.profilePic}
+                      alt="Profile Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <CameraIcon className="size-12 text-base-content opacity-40" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Remove Image Button */}
+                {formState.profilePic && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 btn btn-circle btn-sm btn-error"
+                    title="Remove image"
+                  >
+                    <X className="size-4" />
+                  </button>
                 )}
               </div>
 
-              {/* Generate Random Avatar BTN */}
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={handleRandomAvatar} className="btn btn-accent">
-                  <ShuffleIcon className="size-4 mr-2" />
-                  Generate Random Avatar
+              {/* Hidden File Input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+                disabled={isCompressing || isGeneratingAvatar}
+              />
+
+              {/* Upload Buttons */}
+              <div className="flex flex-col gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="btn btn-primary gap-2"
+                  disabled={isCompressing || isGeneratingAvatar}
+                >
+                  {isCompressing ? (
+                    <>
+                      <LoaderIcon className="animate-spin size-4" />
+                      Compressing...
+                    </>
+                  ) : (
+                    <>
+                      <UploadIcon className="size-4" />
+                      Upload Photo
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRandomAvatar}
+                  className="btn btn-outline gap-2"
+                  disabled={isCompressing || isGeneratingAvatar}
+                >
+                  {isGeneratingAvatar ? (
+                    <>
+                      <LoaderIcon className="animate-spin size-4" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <ShuffleIcon className="size-4" />
+                      Or Generate Avatar
+                    </>
+                  )}
                 </button>
               </div>
+
+              {/* Helper Text */}
+              <p className="text-xs text-base-content opacity-60 text-center max-w-xs">
+                Upload a photo or generate a random avatar. Images are auto-compressed to ~10KB.
+              </p>
             </div>
 
             {/* FULL NAME */}

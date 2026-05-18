@@ -45,14 +45,18 @@ const ChatPage = () => {
 
         const client = StreamChat.getInstance(STREAM_API_KEY);
 
-        await client.connectUser(
-          {
-            id: authUser._id,
-            name: authUser.fullName,
-            image: authUser.profilePic,
-          },
-          tokenData.token
-        );
+        // Build user object - only include image if it's a URL, not base64 (Stream.io has 5KB limit on user data)
+        const userObject = {
+          id: authUser._id,
+          name: authUser.fullName,
+        };
+
+        // Only add image if it's a valid URL (not base64)
+        if (authUser.profilePic && authUser.profilePic.startsWith("http")) {
+          userObject.image = authUser.profilePic;
+        }
+
+        await client.connectUser(userObject, tokenData.token);
 
         //
         const channelId = [authUser._id, targetUserId].sort().join("-");

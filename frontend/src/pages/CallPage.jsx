@@ -42,11 +42,16 @@ const CallPage = () => {
       try {
         console.log("Initializing Stream video client...");
 
+        // Build user object - only include image if it's a URL, not base64 (Stream.io has 5KB limit on user data)
         const user = {
           id: authUser._id,
           name: authUser.fullName,
-          image: authUser.profilePic,
         };
+
+        // Only add image if it's a valid URL (not base64)
+        if (authUser.profilePic && authUser.profilePic.startsWith("http")) {
+          user.image = authUser.profilePic;
+        }
 
         const videoClient = new StreamVideoClient({
           apiKey: STREAM_API_KEY,
@@ -56,7 +61,13 @@ const CallPage = () => {
 
         const callInstance = videoClient.call("default", callId);
 
-        await callInstance.join({ create: true });
+        // Join with explicit settings to prevent undefined property errors
+        await callInstance.join({ 
+          create: true,
+          data: {
+            custom: {},
+          }
+        });
 
         console.log("Joined call successfully");
 
