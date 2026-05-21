@@ -1,5 +1,13 @@
 import sgMail from '@sendgrid/mail';
 
+// Validate SendGrid configuration
+if (!process.env.SENDGRID_API_KEY) {
+  console.warn('WARNING: SENDGRID_API_KEY is not set');
+}
+if (!process.env.SENDGRID_FROM_EMAIL) {
+  console.warn('WARNING: SENDGRID_FROM_EMAIL is not set');
+}
+
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 export async function sendVerificationEmail(email, token, baseUrl) {
@@ -16,7 +24,12 @@ export async function sendVerificationEmail(email, token, baseUrl) {
     `
   };
 
-  await sgMail.send(msg);
+  try {
+    await sgMail.send(msg);
+  } catch (error) {
+    console.error('Error sending verification email:', error.message);
+    throw error;
+  }
 }
 
 export async function sendPasswordResetEmail(email, token, baseUrl) {
@@ -72,5 +85,10 @@ export async function sendPasswordResetEmail(email, token, baseUrl) {
     `,
   };
 
-  await sgMail.send(msg);
+  try {
+    await sgMail.send(msg);
+  } catch (error) {
+    console.error('Error sending password reset email:', error.message);
+    throw error;
+  }
 }
