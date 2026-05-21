@@ -72,12 +72,5 @@ export async function sendPasswordResetEmail(email, token, baseUrl) {
     `,
   };
 
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Password reset email sent:", info.response);
-    return true;
-  } catch (error) {
-    console.error("Error sending password reset email:", error);
-    throw error;
-  }
+  await sgMail.send(msg);
 }
